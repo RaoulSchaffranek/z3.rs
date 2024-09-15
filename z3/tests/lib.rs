@@ -2,7 +2,7 @@ use log::info;
 use std::convert::TryInto;
 use std::ops::Add;
 use std::time::Duration;
-use z3::ast::{Array, Ast, Bool, Int, BV};
+use z3::ast::{Array, Ast, Bool, Int, BV, Seq};
 use z3::*;
 
 use num::{bigint::BigInt, rational::BigRational};
@@ -1250,6 +1250,57 @@ fn test_array_store_select() {
         .store(&zero, &one);
 
     solver.assert(&set.select(&zero)._eq(&one.into()).not());
+    assert_eq!(solver.check(), SatResult::Unsat);
+}
+
+#[test]
+fn test_seq_empty() {
+    let _ = env_logger::try_init();
+    let cfg = Config::new();
+    let ctx = Context::new(&cfg);
+    let solver = Solver::new(&ctx);
+    let empty_seq = Seq::empty(&ctx, &Sort::int(&ctx));
+    let non_empty_seq: Seq = Seq::new_const(&ctx, "non empty seq", &Sort::int(&ctx));
+    solver.assert(&empty_seq._eq(&non_empty_seq).not());
+    solver.assert(&non_empty_seq.prefix_of(&empty_seq));
+    assert_eq!(solver.check(), SatResult::Unsat);
+}
+
+#[test]
+fn test_seq_concat_prefix() {
+    let _ = env_logger::try_init();
+    let cfg: Config = Config::new();
+    let ctx: Context = Context::new(&cfg);
+    let solver: Solver = Solver::new(&ctx);
+    let a = Seq::fresh_const(&ctx, "a", &Sort::int(&ctx));
+    let b = Seq::fresh_const(&ctx, "b", &Sort::int(&ctx));
+    let a_before_b = Seq::concat(&ctx, &[&a, &b]);
+    solver.assert(&a.prefix_of(&a_before_b).not());
+    assert_eq!(solver.check(), SatResult::Unsat);
+}
+
+#[test]
+fn test_seq_concat_suffix() {
+    let _ = env_logger::try_init();
+    let cfg: Config = Config::new();
+    let ctx: Context = Context::new(&cfg);
+    let solver: Solver = Solver::new(&ctx);
+    let a = Seq::fresh_const(&ctx, "a", &Sort::int(&ctx));
+    let b = Seq::fresh_const(&ctx, "b", &Sort::int(&ctx));
+    let a_before_b = Seq::concat(&ctx, &[&a, &b]);
+    solver.assert(&b.suffix_of(&a_before_b).not());
+    assert_eq!(solver.check(), SatResult::Unsat);
+}
+
+#[test]
+fn test_seq_nth() {
+    let _ = env_logger::try_init();
+    let cfg: Config = Config::new();
+    let ctx: Context = Context::new(&cfg);
+    let solver: Solver = Solver::new(&ctx);
+    let any_element = ast::Int::fresh_const(&ctx, "any int");
+    let seq : Seq = Seq::unit(&ctx, &any_element);
+    solver.assert(&seq.nth(Int::from_u64(&ctx, 0))._eq(&any_element.into()).not());
     assert_eq!(solver.check(), SatResult::Unsat);
 }
 
